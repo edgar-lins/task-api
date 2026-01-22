@@ -11,22 +11,48 @@ type Task struct {
 	Done        bool   `json:"done"`
 }
 
-func getTasks(w http.ResponseWriter, r *http.Request) {
-	// Simulando dados que viriam do banco de dados
-	tasks := []Task{
-		{ID: 1, Description: "Aprender HTTP", Done: true},
-		{ID: 2, Description: "Criar primeira API", Done: false},
-	}
+// Variável GLOBAL: Agora a lista vive fora da função, para não resetar a cada requisição
+var tasks = []Task{
+	{ID: 1, Description: "Entender GET vs POST", Done: true},
+}
 
-	// Define que a resposta é do tipo JSON (importante para o navegador entender)
+func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Transforma a struct JSON e envia para o navegador (w)
-	json.NewEncoder(w).Encode(tasks)
+	switch r.Method {
+	case "GET":
+		// 🟢 Se for GET: Devolve a lista (igual fizemos antes)
+		json.NewEncoder(w).Encode(tasks)
+	case "POST":
+		// 🔵 Se for POST: Cria tarefa nova
+		var newTask Task
+
+		// 1. Decodifica o JSON que veio no corpo da requisição (Body)
+		// e joga para dentro da variável newTask
+		err := json.NewDecoder(r.Body).Decode(&newTask)
+		if err != nil {
+			http.Error(w, "Erro ao ler o JSON", http.StatusBadRequest)
+			return
+		}
+
+		// 2. Lógica simples de ID (pega o tamanho + 1)
+		newTask.ID = len(tasks) + 1
+
+		// 3. Adiciona na lista global
+		tasks = append(tasks, newTask)
+
+		// 4. Devolve o status 201 (Created) e a tarefa criada
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(newTask)
+
+	default:
+		// Se tentarem DELETE ou PUT, devolvemos erro 405 (Método não permitido)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
 
 func main() {
-	http.HandleFunc("/tasks", getTasks) // Mudamos a rota para /tasks
+	http.HandleFunc("/tasks", tasksHandler) // Mudamos a rota para /tasks
 
 	println("Servidor rodando em http://localhost:8080/tasks")
 	http.ListenAndServe(":8080", nil)
