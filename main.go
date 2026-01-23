@@ -27,6 +27,15 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		var newTask models.Task // Usa a struct do pacote models
 		json.NewDecoder(r.Body).Decode(&newTask)
 
+		// --- 🛑 NOVO: Validação ---
+		if err := newTask.Validate(); err != nil {
+			// Se der erro de validação, devolvemos erro 400 (Bad Request)
+			// e a mensagem do erro (ex: "descrição muito curta")
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		// --------------------------
+
 		// Chama a função da pasta db
 		id, err := db.CreateTask(database, newTask)
 		if err != nil {
