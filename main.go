@@ -18,7 +18,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		// Chama a função da pasta db
 		tasks, err := db.GetTasks(database)
 		if err != nil {
-			http.Error(w, "Errp ao buscar", http.StatusInternalServerError)
+			http.Error(w, "Erro ao buscar", http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(tasks)
