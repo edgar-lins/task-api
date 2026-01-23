@@ -2,63 +2,28 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"net/http"
 	"task-api/db"
-	"task-api/models"
+	"task-api/handlers"
 )
 
 var database *sql.DB
 
-func tasksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	switch r.Method {
-	case "GET":
-		// Chama a função da pasta db
-		tasks, err := db.GetTasks(database)
-		if err != nil {
-			http.Error(w, "Erro ao buscar", http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(tasks)
-
-	case "POST":
-		var newTask models.Task // Usa a struct do pacote models
-		json.NewDecoder(r.Body).Decode(&newTask)
-
-		// --- 🛑 NOVO: Validação ---
-		if err := newTask.Validate(); err != nil {
-			// Se der erro de validação, devolvemos erro 400 (Bad Request)
-			// e a mensagem do erro (ex: "descrição muito curta")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		// --------------------------
-
-		// Chama a função da pasta db
-		id, err := db.CreateTask(database, newTask)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		newTask.ID = id
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(newTask)
-	}
-}
-
 func main() {
-	// 1. Inicializa o banco e guarda a conexão na variável global
+	// 1. Inicializa o Banco
 	database = db.InitDB()
-	// Importante: Fechar a conexão quando o main morrer (Ctrl+C)
 	defer database.Close()
 
-	// 2. Configura rotas
-	http.HandleFunc("/tasks", tasksHandler)
+	// 2. Cria o Handler injetando a conexão do banco nele
+	// Aqui estamos criando a "Caixa" e colocando o banco dentro
+	myHandler := handlers.TaskHandler{
+		DB: database,
+	}
 
-	// 3. Sobe o servidor
+	// 3. Define as Rotas com Middleware
+	// Note que chamamos myHandler.HandleTasks
+	http.HandleFunc("/tasks", handlers.AuthMiddleware(myHandler.TasksHandler))
+
 	println("🔥 API Organizada rodando em http://localhost:8080/tasks")
 	http.ListenAndServe(":8080", nil)
 }
