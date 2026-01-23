@@ -51,9 +51,9 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() {
-	http.HandleFunc("/tasks", tasksHandler) // Mudamos a rota para /tasks
+// func main() {
+// 	http.HandleFunc("/tasks", tasksHandler) // Mudamos a rota para /tasks
 
-	println("Servidor rodando em http://localhost:8080/tasks")
-	http.ListenAndServe(":8080", nil)
-}
+// 	println("Servidor rodando em http://localhost:8080/tasks")
+// 	http.ListenAndServe(":8080", nil)
+// }
