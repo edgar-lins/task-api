@@ -1,71 +1,55 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
+	"task-api/db"
+	"task-api/models"
 )
 
-type Task struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
-	Done        bool   `json:"done"`
-}
-
-// Note que removemos a variável global 'tasks'. O banco é a fonte da verdade agora.
+var database *sql.DB
 
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	switch r.Method {
 	case "GET":
-		// 🟢 SELECT: Busca as tarefas no banco
-		rows, err := db.Query("SELECT id, description, done FROM tasks")
+		// Chama a função da pasta db
+		tasks, err := db.GetTasks(database)
 		if err != nil {
-			http.Error(w, "Erro ao buscar tarefa", http.StatusInternalServerError)
+			http.Error(w, "Errp ao buscar", http.StatusInternalServerError)
 			return
-		}
-		defer rows.Close()
-
-		tasks := []Task{}
-		for rows.Next() {
-			var t Task
-			// Scaneia cada linha do banco para dentro da struct
-			rows.Scan(&t.ID, &t.Description, &t.Done)
-			tasks = append(tasks, t)
 		}
 		json.NewEncoder(w).Encode(tasks)
 
 	case "POST":
-		// 🔵 INSERT: Salva no banco
-		var newTask Task
+		var newTask models.Task // Usa a struct do pacote models
 		json.NewDecoder(r.Body).Decode(&newTask)
 
-		// Executa o comando SQL de inserção
-		// O "?" é um placeholder de segurança (evita SQL Injection)
-		result, err := db.Exec("INSERT INTO tasks (description, done) VALUES (?, ?)", newTask.Description, newTask.Done)
+		// Chama a função da pasta db
+		id, err := db.CreateTask(database, newTask)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// Pega o ID que acabou de ser gerado pelo banco
-		id, _ := result.LastInsertId()
-		newTask.ID = int(id)
+		newTask.ID = id
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(newTask)
-
-	default:
-		// Se tentarem DELETE ou PUT, devolvemos erro 405 (Método não permitido)
-		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
 func main() {
-	// Inicializa o banco de dados antes de ligar o servidor
-	initDB()
+	// 1. Inicializa o banco e guarda a conexão na variável global
+	database = db.InitDB()
+	// Importante: Fechar a conexão quando o main morrer (Ctrl+C)
+	defer database.Close()
 
+	// 2. Configura rotas
 	http.HandleFunc("/tasks", tasksHandler)
-	println("Servidor rodando em http://localhost:8080/tasks")
+
+	// 3. Sobe o servidor
+	println("🔥 API Organizada rodando em http://localhost:8080/tasks")
 	http.ListenAndServe(":8080", nil)
 }
